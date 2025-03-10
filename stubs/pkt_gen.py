@@ -4,7 +4,7 @@ import struct
 import time
 
 # Constants
-UART_DEVICE = "/dev/pts/3"
+UART_DEVICE = "/dev/pts/9"
 BAUDRATE = 921600
 PACKET_SIZE = 20
 SYNC_PATTERN = b"\x7F\xF0\x1C\xAF"
@@ -22,12 +22,11 @@ def generate_test_packet(packet_count, x, y, z):
 def imu_simulator():
     with serial.Serial(UART_DEVICE, BAUDRATE, timeout=1) as ser:
         packet_count = 0
-        while True:
-            x, y, z = 1.23, -4.56, 7.89  # Example test values
-            test_packet = generate_test_packet(packet_count, x, y, z)
-            ser.write(test_packet)
-            packet_count += 1
-            time.sleep(INTERVAL_MS / 1000.0)
+        x, y, z = 1.23, -4.56, 7.89  # Example test values
+        test_packet = generate_test_packet(packet_count, x, y, z)
+        ser.write(test_packet)
+        packet_count += 1
+
 
 
 if __name__ == "__main__":

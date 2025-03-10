@@ -18,36 +18,30 @@
 |12|4|float|y_gy_rate|
 |16|4|float|z_gy_rate|
 
-2. What modifications, if any, would you need to make to the code from 1. if the Linux host was a little-
-endian processor? Describe those modifications.
-    - lsb comes before msb
-    - count bottom to top in the memory map
+2. What modifications, if any, would you need to make to the code from 1. if the Linux host was a little-endian processor? Describe those modifications.
 
-3. Write a C++ program that runs on Linux designed to execute in a resource constrained, multi-threaded
-environment that will execute the IMU parsing code every 80ms, and then broadcast the parsed results
-on the localhost network.
+3. Write a C++ program that runs on Linux designed to execute in a resource constrained, multi-threaded environment that will execute the IMU parsing code every 80ms, and then broadcast the parsed results on the localhost network.
 
-4. In Python, design a simple simulator/tester to drive your IMU parser. The simulator should send a string
-of bytes in the proper format over the UART for your parser to accept. The data contained in the byte
-string can be generated in any way of your choosing to best test the parser. Subsequently, it should then
-read the broadcasted results from 3) on the localhost network to validate the output.
+4. In Python, design a simple simulator/tester to drive your IMU parser. The simulator should send a string of bytes in the proper format over the UART for your parser to accept. The data contained in the byte string can be generated in any way of your choosing to best test the parser. Subsequently, it should then read the broadcasted results from 3. on the localhost network to validate the output.
 
+## Build
+Build and start packet processor (imu_parser). 
+Then run IMU tester to print out broadcasted data.  
+```sh
+make
+make sim
+```
 ## Data and communication
-- Network uses big-endianess (msb first)
-- Linux uses little-endiness (lsb first)
-
-- Baud rate, sampling rate (ms) conversion 
-- Read IMU data from read-only registers 
-
 - Stream data over UART at a given baud rate
-    - display in tty
+    - try with `/dev/tty1`, if not available then `socat -d -d pty,raw,echo=0 pty,raw,echo=0`
 
 - Broadcast data over network
-    - Sockets API?
+    - Sockets API
+    - port 5000
 
 - Parse IMU telemetry data into python script
-    - Build .py parser
-    - Create network (localhost, loopback)
-    - ports?
+    - Listen on another thread to print IMU data
 
+### Issues:
+- Fix IEEE-753 format
 
