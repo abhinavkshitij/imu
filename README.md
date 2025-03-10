@@ -23,13 +23,13 @@
 3. Write a C++ program that runs on Linux designed to execute in a resource constrained, multi-threaded environment that will execute the IMU parsing code every 80ms, and then broadcast the parsed results on the localhost network.
 
 4. In Python, design a simple simulator/tester to drive your IMU parser. The simulator should send a string of bytes in the proper format over the UART for your parser to accept. The data contained in the byte string can be generated in any way of your choosing to best test the parser. Subsequently, it should then read the broadcasted results from 3. on the localhost network to validate the output.
----
+
 
 ## Dev notes
 Clone the project from github repo `https://github.com/abhinavkshitij/imu.git` and checkout to `develop` branch. The project dev follows Gitflow, so feel free to create addl branches as required. ideally the `main` should be protected, while `develop` may be protected additionally. 
 
-The project does not have the following:
-- test suite for python and cpp stubs. Developer should add unit test and integration tests during developement. 
+Future development scope includes:
+- Test suite for python and cpp stubs. Developer should add unit test and integration tests during developement. 
 - CI pipeline can be setup as Github Actions or any other CI tool (Jenkins, GitlabCI, Bamboo)
 - Makefile should suffice build and run for this project, but CMake and CTest is preferred over Makefile for cross-compilation
 - Replace SIL runs in an RTOS environment to accurately determine the order of operation
@@ -53,16 +53,36 @@ make clean
 deactivate
 ```
 
----
 ## Issues and fixes:
-- Fix IEEE-753 format
+- Fix IEEE-754 format
+
+Test scripts in `py/stubs/` send and receive data in the correct order. 
+Require CPP function to replicate the same behavior.   
 
 ### Data and communication
 - Stream data over UART at a given baud rate
-    - try with `/dev/tty1`, if not available then `socat -d -d pty,raw,echo=0 pty,raw,echo=0`
+    - try with `/dev/tty1`
+    - if not available then `socat -d -d pty,raw,echo=0 pty,raw,echo=0`
 
 - Broadcast data over a local network
     - localhost:5000
 
 - Parse IMU telemetry data into python script
     - Listen on another thread to print IMU data
+
+```cpp
+int init_udp_socket(struct sockaddr_in &broadcast_addr) {
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        std::cerr << "Failed to create socket!" << std::endl;
+        return -1;
+    }
+
+    memset(&broadcast_addr, 0, sizeof(broadcast_addr));
+    broadcast_addr.sin_family = AF_INET;
+    broadcast_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK); 
+    broadcast_addr.sin_port = htons(BROADCAST_PORT);
+   
+    return sock;
+}
+```

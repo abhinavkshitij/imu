@@ -4,16 +4,11 @@
 #include <termios.h>
 #include <cstring>
 #include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <sstream>
 
 #define UART_DEVICE "/dev/pts/10"  // Change to actual serial port
 #define BAUDRATE B921600
 #define PACKET_SIZE 20
 #define SYNC_PATTERN "\x7F\xF0\x1C\xAF"
-#define BROADCAST_IP "127.0.0.1"
-#define BROADCAST_PORT 5000
 
 #pragma pack(push, 1)
 struct IMUPacket {
@@ -63,44 +58,8 @@ int configure_serial(const char* device) {
     return fd;
 }
 
-// Function to setup UDP broadcasting
-int setup_udp_socket() {
-    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0) {
-        std::cerr << "Error creating UDP socket!" << std::endl;
-        return -1;
-    }
-
-    struct sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(BROADCAST_PORT);
-    addr.sin_addr.s_addr = inet_addr(BROADCAST_IP);
-
-    if (connect(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        std::cerr << "Error connecting UDP socket!" << std::endl;
-        close(sockfd);
-        return -1;
-    }
-
-    return sockfd;
-}
-
-// Function to broadcast IMU data
-void broadcast_imu_data(int udp_sock, uint32_t packet_count, float x, float y, float z) {
-    std::ostringstream json_stream;
-    json_stream << "{"
-                << "\"packet_count\":" << packet_count << ","
-                << "\"x\":" << x << ","
-                << "\"y\":" << y << ","
-                << "\"z\":" << z
-                << "}";
-
-    std::string json_data = json_stream.str();
-    send(udp_sock, json_data.c_str(), json_data.length(), 0);
-}
-
-// Function to read, parse, and broadcast IMU data
-void read_imu_data(int fd, int udp_sock) {
+// Function to read and parse IMU data
+void read_imu_data(int fd) {
     IMUPacket imu_data;
     while (true) {
         int bytes_read = read(fd, &imu_data, PACKET_SIZE);
@@ -115,9 +74,6 @@ void read_imu_data(int fd, int udp_sock) {
                           << ", X=" << x_rate
                           << ", Y=" << y_rate
                           << ", Z=" << z_rate << std::endl;
-
-                // Broadcast data over UDP
-                broadcast_imu_data(udp_sock, packet_count, x_rate, y_rate, z_rate);
             } else {
                 std::cerr << "Invalid sync pattern detected!" << std::endl;
             }
@@ -129,14 +85,9 @@ int main() {
     int serial_fd = configure_serial(UART_DEVICE);
     if (serial_fd == -1) return 1;
 
-    int udp_sock = setup_udp_socket();
-    if (udp_sock == -1) return 1;
-
-    std::cout << "Listening on " << UART_DEVICE << " and broadcasting to " 
-              << BROADCAST_IP << ":" << BROADCAST_PORT << "..." << std::endl;
-    read_imu_data(serial_fd, udp_sock);
+    std::cout << "Listening on " << UART_DEVICE << "..." << std::endl;
+    read_imu_data(serial_fd);
 
     close(serial_fd);
-    close(udp_sock);
     return 0;
 }
