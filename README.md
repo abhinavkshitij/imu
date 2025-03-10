@@ -23,25 +23,46 @@
 3. Write a C++ program that runs on Linux designed to execute in a resource constrained, multi-threaded environment that will execute the IMU parsing code every 80ms, and then broadcast the parsed results on the localhost network.
 
 4. In Python, design a simple simulator/tester to drive your IMU parser. The simulator should send a string of bytes in the proper format over the UART for your parser to accept. The data contained in the byte string can be generated in any way of your choosing to best test the parser. Subsequently, it should then read the broadcasted results from 3. on the localhost network to validate the output.
+---
 
-## Build
+## Dev notes
+Clone the project from github repo `https://github.com/abhinavkshitij/imu.git` and checkout to `develop` branch. The project dev follows Gitflow, so feel free to create addl branches as required. ideally the `main` should be protected, while `develop` may be protected additionally. 
+
+The project does not have the following:
+- test suite for python and cpp stubs. Developer should add unit test and integration tests during developement. 
+- CI pipeline can be setup as Github Actions or any other CI tool (Jenkins, GitlabCI, Bamboo)
+- Makefile should suffice build and run for this project, but CMake and CTest is preferred over Makefile for cross-compilation
+- Replace SIL runs in an RTOS environment to accurately determine the order of operation
+- Transform stubs into reusable components. Then publish the pacakges (conan for CPP and pypi for python) to an artifactory location. 
+- Add security measures. Packages must be pulled from artifactory after being scanned in a DevOps pipeline.    
+
+## Build notes
 Build and start packet processor (imu_parser). 
 Then run IMU tester to print out broadcasted data.  
 ```sh
+cd {PROJECT_ROOT}
+python -m venv .venv
+source ./.venv/bin/activate
+pip install -r requirements.txt
 make
 make sim
 ```
-## Data and communication
+After running the project, you may want to cleanup
+```sh
+make clean
+deactivate
+```
+
+---
+## Issues and fixes:
+- Fix IEEE-753 format
+
+### Data and communication
 - Stream data over UART at a given baud rate
     - try with `/dev/tty1`, if not available then `socat -d -d pty,raw,echo=0 pty,raw,echo=0`
 
-- Broadcast data over network
-    - Sockets API
-    - port 5000
+- Broadcast data over a local network
+    - localhost:5000
 
 - Parse IMU telemetry data into python script
     - Listen on another thread to print IMU data
-
-### Issues:
-- Fix IEEE-753 format
-

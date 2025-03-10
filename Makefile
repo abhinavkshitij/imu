@@ -24,7 +24,7 @@ run: $(TARGET)
 
 # Simulate
 sim:
-	python imu_sim.py
+	python py/imu_sim.py
 
 # Clean
 clean:
