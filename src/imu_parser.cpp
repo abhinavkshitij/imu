@@ -12,24 +12,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <chrono>
+#include "imu_parser.h"
 
-#define UART_DEVICE "/dev/pts/10"  // Change to actual serial port
-#define BAUDRATE B921600
-#define PACKET_SIZE 20
-#define SYNC_PATTERN "\x7F\xF0\x1C\xAF"
-#define BROADCAST_IP "127.0.0.1"
-#define BROADCAST_PORT 5000
-#define BROADCAST_INTERVAL_MS 80  // 80ms interval
-
-#pragma pack(push, 1)
-struct IMUPacket {
-    char sync[4];
-    uint32_t packet_count;
-    uint32_t x_raw;
-    uint32_t y_raw;
-    uint32_t z_raw;
-};
-#pragma pack(pop)
 
 // Shared queue for inter-thread communication
 std::queue<std::string> imu_data_queue;
