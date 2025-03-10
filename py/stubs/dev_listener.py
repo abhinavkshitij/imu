@@ -2,7 +2,7 @@ import serial
 import struct
 
 # Use the corresponding serial port for listening (e.g., /dev/pts/4)
-UART_DEVICE = "/dev/pts/6"  
+UART_DEVICE = "/dev/pts/10"  
 BAUDRATE = 921600
 
 PACKET_SIZE = 20  # 4-byte sync + 4-byte int + 3 floats
