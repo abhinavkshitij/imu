@@ -7,6 +7,11 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sstream>
+#include <thread>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
 
 #define UART_DEVICE "/dev/pts/10"  // Change to actual serial port
 #define BAUDRATE B921600
@@ -14,6 +19,7 @@
 #define SYNC_PATTERN "\x7F\xF0\x1C\xAF"
 #define BROADCAST_IP "127.0.0.1"
 #define BROADCAST_PORT 5000
+#define BROADCAST_INTERVAL_MS 80  // 80ms interval
 
 #pragma pack(push, 1)
 struct IMUPacket {
@@ -24,6 +30,11 @@ struct IMUPacket {
     uint32_t z_raw;
 };
 #pragma pack(pop)
+
+// Shared queue for inter-thread communication
+std::queue<std::string> imu_data_queue;
+std::mutex queue_mutex;
+std::condition_variable queue_cv;
 
 // Check system endianness
 bool is_little_endian() {
@@ -41,7 +52,7 @@ float convert_float(uint32_t raw_value) {
     return value;
 }
 
-// Function to configure UART
+// Configure UART
 int configure_serial(const char* device) {
     int fd = open(device, O_RDWR | O_NOCTTY | O_NDELAY);
     if (fd == -1) {
@@ -63,7 +74,7 @@ int configure_serial(const char* device) {
     return fd;
 }
 
-// Function to setup UDP broadcasting
+// Setup UDP socket for broadcasting
 int setup_udp_socket() {
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
@@ -85,25 +96,30 @@ int setup_udp_socket() {
     return sockfd;
 }
 
-// Function to broadcast IMU data
-void broadcast_imu_data(int udp_sock, uint32_t packet_count, float x, float y, float z) {
-    std::ostringstream json_stream;
-    json_stream << "{"
-                << "\"packet_count\":" << packet_count << ","
-                << "\"x\":" << x << ","
-                << "\"y\":" << y << ","
-                << "\"z\":" << z
-                << "}";
+// Function to broadcast data every 80ms
+void broadcast_imu_data(int udp_sock) {
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(BROADCAST_INTERVAL_MS));
 
-    std::string json_data = json_stream.str();
-    send(udp_sock, json_data.c_str(), json_data.length(), 0);
+        std::unique_lock<std::mutex> lock(queue_mutex);
+        if (!imu_data_queue.empty()) {
+            std::string json_data = imu_data_queue.front();
+            imu_data_queue.pop();
+            lock.unlock();
+
+            send(udp_sock, json_data.c_str(), json_data.length(), 0);
+            std::cout << "Broadcasted: " << json_data << std::endl;
+        } else {
+            lock.unlock();
+        }
+    }
 }
 
-// Function to read, parse, and broadcast IMU data
-void read_imu_data(int fd, int udp_sock) {
+// Function to read IMU data from UART
+void read_imu_data(int serial_fd) {
     IMUPacket imu_data;
     while (true) {
-        int bytes_read = read(fd, &imu_data, PACKET_SIZE);
+        int bytes_read = read(serial_fd, &imu_data, PACKET_SIZE);
         if (bytes_read == PACKET_SIZE) {
             if (memcmp(imu_data.sync, SYNC_PATTERN, 4) == 0) {
                 uint32_t packet_count = ntohl(imu_data.packet_count);
@@ -111,13 +127,26 @@ void read_imu_data(int fd, int udp_sock) {
                 float y_rate = convert_float(imu_data.y_raw);
                 float z_rate = convert_float(imu_data.z_raw);
 
+                std::ostringstream json_stream;
+                json_stream << "{"
+                            << "\"packet_count\":" << packet_count << ","
+                            << "\"x\":" << x_rate << ","
+                            << "\"y\":" << y_rate << ","
+                            << "\"z\":" << z_rate
+                            << "}";
+
+                std::string json_data = json_stream.str();
+
                 std::cout << "Received Packet: Count=" << packet_count
                           << ", X=" << x_rate
                           << ", Y=" << y_rate
                           << ", Z=" << z_rate << std::endl;
 
-                // Broadcast data over UDP
-                broadcast_imu_data(udp_sock, packet_count, x_rate, y_rate, z_rate);
+                // Store in queue for broadcasting
+                {
+                    std::lock_guard<std::mutex> lock(queue_mutex);
+                    imu_data_queue.push(json_data);
+                }
             } else {
                 std::cerr << "Invalid sync pattern detected!" << std::endl;
             }
@@ -133,8 +162,14 @@ int main() {
     if (udp_sock == -1) return 1;
 
     std::cout << "Listening on " << UART_DEVICE << " and broadcasting to " 
-              << BROADCAST_IP << ":" << BROADCAST_PORT << "..." << std::endl;
-    read_imu_data(serial_fd, udp_sock);
+              << BROADCAST_IP << ":" << BROADCAST_PORT << " every 80ms..." << std::endl;
+
+    // Create threads for reading UART and broadcasting data every 80ms
+    std::thread read_thread(read_imu_data, serial_fd);
+    std::thread broadcast_thread(broadcast_imu_data, udp_sock);
+
+    read_thread.join();
+    broadcast_thread.join();
 
     close(serial_fd);
     close(udp_sock);
