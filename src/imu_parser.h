@@ -10,7 +10,7 @@
 
 struct IMUPacket {
     char sync[4];
-    uint32_t packet_count;
+    uint32_t Packet_Count;
     uint32_t x_raw;
     uint32_t y_raw;
     uint32_t z_raw;

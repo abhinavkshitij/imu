@@ -92,7 +92,8 @@ void broadcast_imu_data(int udp_sock) {
             lock.unlock();
 
             send(udp_sock, json_data.c_str(), json_data.length(), 0);
-            std::cout << "Broadcasted: " << json_data << std::endl;
+            // debug: uncomment to print output
+            // std::cout << "Broadcasted: " << json_data << std::endl;
         } else {
             lock.unlock();
         }
@@ -106,25 +107,25 @@ void read_imu_data(int serial_fd) {
         int bytes_read = read(serial_fd, &imu_data, PACKET_SIZE);
         if (bytes_read == PACKET_SIZE) {
             if (memcmp(imu_data.sync, SYNC_PATTERN, 4) == 0) {
-                uint32_t packet_count = ntohl(imu_data.packet_count);
-                float x_rate = convert_float(imu_data.x_raw);
-                float y_rate = convert_float(imu_data.y_raw);
-                float z_rate = convert_float(imu_data.z_raw);
+                uint32_t Packet_Count = ntohl(imu_data.Packet_Count);
+                float X_Rate_rdps = convert_float(imu_data.x_raw);
+                float Y_Rate_rdps = convert_float(imu_data.y_raw);
+                float Z_Rate_rdps = convert_float(imu_data.z_raw);
 
                 std::ostringstream json_stream;
                 json_stream << "{"
-                            << "\"packet_count\":" << packet_count << ","
-                            << "\"x\":" << x_rate << ","
-                            << "\"y\":" << y_rate << ","
-                            << "\"z\":" << z_rate
+                            << "\"Packet_Count\":" << Packet_Count << ","
+                            << "\"x\":" << X_Rate_rdps << ","
+                            << "\"y\":" << Y_Rate_rdps << ","
+                            << "\"z\":" << Z_Rate_rdps
                             << "}";
 
                 std::string json_data = json_stream.str();
-
-                std::cout << "Received Packet: Count=" << packet_count
-                          << ", X=" << x_rate
-                          << ", Y=" << y_rate
-                          << ", Z=" << z_rate << std::endl;
+                // debug: uncomment to print output    
+                // std::cout << "Received Packet: Count=" << Packet_Count
+                //           << ", X=" << X_Rate_rdps
+                //           << ", Y=" << Y_Rate_rdps
+                //           << ", Z=" << Z_Rate_rdps << std::endl;
 
                 // Store in queue for broadcasting
                 {
